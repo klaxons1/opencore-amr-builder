@@ -1,0 +1,65 @@
+name: Build OpenCore-AMR Static Libraries
+
+on:
+  workflow_dispatch:  # 允许手动触发
+  push:
+    branches: [ main ]  # 或者你用的分支名
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Install Dependencies (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        sudo apt update || true
+        sudo apt install -y autoconf automake make gcc g++ || true
+
+    - name: Install MSYS2 (Windows)
+      if: runner.os == 'Windows'
+      uses: msys2/setup-msys2@v2
+      with:
+        install: mingw-w64-x86_64-toolchain make autoconf automake
+        msystem: MINGW64
+
+    - name: Download opencore-amr source
+      run: |
+        curl -L -o opencore-amr.tar.gz https://downloads.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-0.1.5.tar.gz
+        tar -xzf opencore-amr.tar.gz
+        mv opencore-amr-0.1.5 opencore-amr
+
+    - name: Build opencore-amr (Linux/macOS)
+      if: runner.os != 'Windows'
+      run: |
+        cd opencore-amr
+        ./configure --prefix=$PWD/build
+        make -j$(nproc)
+        make install
+
+    - name: Build opencore-amr (Windows with MSYS2)
+      if: runner.os == 'Windows'
+      shell: msys2 {0}
+      run: |
+        cd opencore-amr
+        ./configure --prefix=$PWD/build --host=mingw32
+        make -j$(nproc)
+        make install
+
+    - name: Package artifacts
+      run: |
+        cd opencore-amr/build
+        zip -r ../../opencore-amr-${{ runner.os }}.zip include lib
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: opencore-amr-${{ runner.os }}
+        path: opencore-amr-${{ runner.os }}.zip
