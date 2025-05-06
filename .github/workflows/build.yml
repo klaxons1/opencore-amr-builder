@@ -68,15 +68,29 @@ jobs:
           cp amrnb/interf_dec.h ../artifacts/macos/
           cp amrnb/interf_enc.h ../artifacts/macos/
 
-  upload:
-    needs: [build-linux, build-windows, build-macos]
-    runs-on: ubuntu-latest
-    if: always()
-    steps:
-      - uses: actions/checkout@v3
+   upload:
+      needs: [build-linux, build-windows, build-macos]
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
   
-      - name: Upload compiled artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: opencore-amr-libs
-          path: artifacts/
+        - name: Download all artifacts
+          uses: actions/download-artifact@v3
+          with:
+            path: artifacts/
+  
+        - name: List downloaded artifacts
+          run: ls -R artifacts/
+  
+        - name: Upload to GitHub Release
+          uses: softprops/action-gh-release@v1
+          with:
+            tag_name: nightly-${{ github.run_number }}
+            name: "Nightly Release ${{ github.run_number }}"
+            files: artifacts/**/*  # 包含所有子文件夹和文件
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+          
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
