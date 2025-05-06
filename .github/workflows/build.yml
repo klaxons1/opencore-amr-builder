@@ -18,7 +18,7 @@ jobs:
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure --enable-static --disable-shared
+          ./configure --enable-static --disable-shared --enable-amrnb
           make -j$(nproc)
           mkdir -p ../artifacts/linux
           cp .libs/libopencore-amrnb.a ../artifacts/linux/
@@ -41,7 +41,7 @@ jobs:
           pacman -S --noconfirm autoconf automake libtool
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure --host=mingw32 --enable-static --disable-shared
+          ./configure --host=mingw32 --enable-static --disable-shared --enable-amrnb
           make -j$(nproc)
           mkdir -p ../artifacts/windows
           cp .libs/libopencore-amrnb.a ../artifacts/windows/
@@ -59,7 +59,7 @@ jobs:
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure --enable-static --disable-shared
+          ./configure --enable-static --disable-shared --enable-amrnb
           make -j$(sysctl -n hw.logicalcpu)
           mkdir -p ../artifacts/macos
           cp .libs/libopencore-amrnb.a ../artifacts/macos/
