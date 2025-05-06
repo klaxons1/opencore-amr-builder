@@ -19,7 +19,7 @@ jobs:
 
       - name: Clone opencore-amr
         run: |
-          git clone git@github.com:mstorsjo/opencore-amr.git
+          git clone https://onboardcloud.dl.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-0.1.6.tar.gz?viasf=1
           cd opencore-amr && ./autogen.sh && ./configure --enable-static --disable-shared
           make -j$(nproc)
           mkdir -p ../artifacts/linux
@@ -43,7 +43,7 @@ jobs:
         shell: msys2 {0}
         run: |
           pacman -S --noconfirm git autoconf automake libtool
-          git clone git@github.com:mstorsjo/opencore-amr.git
+          git clone https://onboardcloud.dl.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-0.1.6.tar.gz?viasf=1
           cd opencore-amr
           ./autogen.sh
           ./configure --host=mingw32 --enable-static --disable-shared
@@ -63,7 +63,7 @@ jobs:
 
       - name: Build opencore-amr
         run: |
-          git clone git@github.com:mstorsjo/opencore-amr.git
+          git https://onboardcloud.dl.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-0.1.6.tar.gz?viasf=1
           cd opencore-amr
           ./autogen.sh
           ./configure --enable-static --disable-shared
