@@ -74,8 +74,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Upload compiled artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: opencore-amr-libs
-          path: artifacts/
+      # - name: Upload compiled artifacts
+      #   uses: actions/upload-artifact@v2
+      #   with:
+      #     name: opencore-amr-libs
+      #     path: artifacts/
+
+      - name: Upload to GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: artifacts/*
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
