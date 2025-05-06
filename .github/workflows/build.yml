@@ -21,7 +21,7 @@ jobs:
           ./configure --enable-static --disable-shared --enable-amrnb
           make -j$(nproc)
           mkdir -p ../artifacts/linux
-          cp .libs/libopencore-amrnb.a ../artifacts/linux/
+          cp amrnb/.libs/libopencore-amrnb.a ../artifacts/linux/
           cp -r include ../artifacts/linux/
 
   build-windows:
@@ -44,7 +44,7 @@ jobs:
           ./configure --host=mingw32 --enable-static --disable-shared --enable-amrnb
           make -j$(nproc)
           mkdir -p ../artifacts/windows
-          cp .libs/libopencore-amrnb.a ../artifacts/windows/
+          cp amrnb/.libs/libopencore-amrnb.a ../artifacts/windows/
           cp -r include ../artifacts/windows/
 
   build-macos:
@@ -62,7 +62,7 @@ jobs:
           ./configure --enable-static --disable-shared --enable-amrnb
           make -j$(sysctl -n hw.logicalcpu)
           mkdir -p ../artifacts/macos
-          cp .libs/libopencore-amrnb.a ../artifacts/macos/
+          cp amrnb/.libs/libopencore-amrnb.a ../artifacts/macos/
           cp -r include ../artifacts/macos/
 
   upload:
