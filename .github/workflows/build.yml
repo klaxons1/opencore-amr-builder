@@ -1,9 +1,17 @@
 name: Build opencore-amr from tarball
 
+# on:
+#   workflow_dispatch:
+#   push:
+#     branches: [ main ]
+
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.0.0)'
+        required: false
+        default: ''
 
 jobs:
   build-linux:
