@@ -20,10 +20,11 @@ jobs:
           cd opencore-amr-0.1.6
           ./configure --enable-static --disable-shared
           make -j$(nproc)
+          cd ..
           mkdir -p artifacts/linux
-          cp amrnb/.libs/libopencore-amrnb.a artifacts/linux/
-          cp amrnb/interf_dec.h artifacts/linux/
-          cp amrnb/interf_enc.h artifacts/linux/
+          cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/linux/
+          cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/linux/
+          cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/linux/
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -50,10 +51,11 @@ jobs:
           cd opencore-amr-0.1.6
           ./configure --host=mingw32 --enable-static --disable-shared
           make -j$(nproc)
+          cd ..
           mkdir -p artifacts/windows
-          cp amrnb/.libs/libopencore-amrnb.a artifacts/windows/
-          cp amrnb/interf_dec.h artifacts/windows/
-          cp amrnb/interf_enc.h artifacts/windows/
+          cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/windows/
+          cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/windows/
+          cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/windows/
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -75,10 +77,11 @@ jobs:
           cd opencore-amr-0.1.6
           ./configure --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
+          cd ..
           mkdir -p artifacts/macos
-          cp amrnb/.libs/libopencore-amrnb.a artifacts/macos/
-          cp amrnb/interf_dec.h artifacts/macos/
-          cp amrnb/interf_enc.h artifacts/macos/
+          cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/macos/
+          cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/macos/
+          cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/macos/
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
