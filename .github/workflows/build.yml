@@ -1,65 +1,86 @@
-name: Build OpenCore-AMR Static Libraries
+name: Build opencore-amr for all platforms
 
 on:
-  workflow_dispatch:  # 允许手动触发
+  workflow_dispatch:
   push:
-    branches: [ main ]  # 或者你用的分支名
+    branches: [ main ]
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
-
+  build-linux:
+    runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@v3
+      - name: Checkout source
+        uses: actions/checkout@v3
 
-    - name: Install Dependencies (Linux/macOS)
-      if: runner.os != 'Windows'
-      run: |
-        sudo apt update || true
-        sudo apt install -y autoconf automake make gcc g++ || true
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool
 
-    - name: Install MSYS2 (Windows)
-      if: runner.os == 'Windows'
-      uses: msys2/setup-msys2@v2
-      with:
-        install: mingw-w64-x86_64-toolchain make autoconf automake
-        msystem: MINGW64
+      - name: Clone opencore-amr
+        run: |
+          git clone https://github.com/mstorsjo/opencore-amr.git
+          cd opencore-amr && ./autogen.sh && ./configure --enable-static --disable-shared
+          make -j$(nproc)
+          mkdir -p ../artifacts/linux
+          cp .libs/libopencore-amrnb.a ../artifacts/linux/
+          cp -r include ../artifacts/linux/
 
-    - name: Download opencore-amr source
-      run: |
-        curl -L -o opencore-amr.tar.gz https://downloads.sourceforge.net/project/opencore-amr/opencore-amr/opencore-amr-0.1.5.tar.gz
-        tar -xzf opencore-amr.tar.gz
-        mv opencore-amr-0.1.5 opencore-amr
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
 
-    - name: Build opencore-amr (Linux/macOS)
-      if: runner.os != 'Windows'
-      run: |
-        cd opencore-amr
-        ./configure --prefix=$PWD/build
-        make -j$(nproc)
-        make install
+      - name: Install MSYS2 and dependencies
+        uses: msys2/setup-msys2@v2
+        with:
+          install: >-
+            base-devel
+            mingw-w64-x86_64-toolchain
 
-    - name: Build opencore-amr (Windows with MSYS2)
-      if: runner.os == 'Windows'
-      shell: msys2 {0}
-      run: |
-        cd opencore-amr
-        ./configure --prefix=$PWD/build --host=mingw32
-        make -j$(nproc)
-        make install
+      - name: Build opencore-amr
+        shell: msys2 {0}
+        run: |
+          pacman -S --noconfirm git autoconf automake libtool
+          git clone https://github.com/mstorsjo/opencore-amr.git
+          cd opencore-amr
+          ./autogen.sh
+          ./configure --host=mingw32 --enable-static --disable-shared
+          make -j$(nproc)
+          mkdir -p ../artifacts/windows
+          cp .libs/libopencore-amrnb.a ../artifacts/windows/
+          cp -r include ../artifacts/windows/
 
-    - name: Package artifacts
-      run: |
-        cd opencore-amr/build
-        zip -r ../../opencore-amr-${{ runner.os }}.zip include lib
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
 
-    - name: Upload artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: opencore-amr-${{ runner.os }}
-        path: opencore-amr-${{ runner.os }}.zip
+      - name: Install dependencies
+        run: brew install autoconf automake libtool
+
+      - name: Build opencore-amr
+        run: |
+          git clone https://github.com/mstorsjo/opencore-amr.git
+          cd opencore-amr
+          ./autogen.sh
+          ./configure --enable-static --disable-shared
+          make -j$(sysctl -n hw.logicalcpu)
+          mkdir -p ../artifacts/macos
+          cp .libs/libopencore-amrnb.a ../artifacts/macos/
+          cp -r include ../artifacts/macos/
+
+  upload:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Upload compiled artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: opencore-amr-libs
+          path: artifacts/
