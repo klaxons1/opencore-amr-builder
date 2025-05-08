@@ -91,32 +91,36 @@ jobs:
           # cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/macos/
           # cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/macos/
 
-          # Build x86_64
+          # Build for x86_64
           cp -r opencore-amr-0.1.6 opencore-amr-x86_64
           cd opencore-amr-x86_64
-          ./configure --enable-static --disable-shared --host=x86_64-apple-darwin CFLAGS="-arch x86_64"
+          export CC=clang
+          export CFLAGS="-arch x86_64"
+          export LDFLAGS="-arch x86_64"
+          ./configure --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
-          cp amrnb/.libs/libopencore-amrnb.a ../libopencore-amrnb-x86_64.a
           cd ..
 
-          # Build arm64
+          # Build for arm64
           cp -r opencore-amr-0.1.6 opencore-amr-arm64
           cd opencore-amr-arm64
-          ./configure --enable-static --disable-shared --host=arm-apple-darwin CFLAGS="-arch arm64"
+          export CC=clang
+          export CFLAGS="-arch arm64"
+          export LDFLAGS="-arch arm64"
+          ./configure --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
-          cp amrnb/.libs/libopencore-amrnb.a ../libopencore-amrnb-arm64.a
           cd ..
 
-          # Create universal binary
+          # Combine libraries into fat binary
           mkdir -p artifacts/macos
-          lipo -create -output artifacts/macos/libopencore-amrnb.a libopencore-amrnb-x86_64.a libopencore-amrnb-arm64.a
+          lipo -create \
+            opencore-amr-x86_64/amrnb/.libs/libopencore-amrnb.a \
+            opencore-amr-arm64/amrnb/.libs/libopencore-amrnb.a \
+            -output artifacts/macos/libopencore-amrnb.a
 
           # Copy headers
           cp opencore-amr-arm64/amrnb/interf_dec.h artifacts/macos/
           cp opencore-amr-arm64/amrnb/interf_enc.h artifacts/macos/
-
-          # Print fat binary info
-          lipo -info artifacts/macos/libopencore-amrnb.a
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
