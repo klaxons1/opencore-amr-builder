@@ -85,7 +85,9 @@ jobs:
           tar xf opencore-amr-x86_64.tar.gz
           mv opencore-amr-0.1.6 opencore-amr-x86_64
           cd opencore-amr-x86_64
-          ./configure CC="clang" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" --enable-static --disable-shared
+          ./configure --build=x86_64-apple-darwin --host=x86_64-apple-darwin \
+                      CC="clang" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+                      --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
 
       - name: Build for arm64
@@ -94,7 +96,9 @@ jobs:
           tar xf opencore-amr-arm64.tar.gz
           mv opencore-amr-0.1.6 opencore-amr-arm64
           cd opencore-amr-arm64
-          ./configure CC="clang" CFLAGS="-arch arm64" LDFLAGS="-arch arm64" --enable-static --disable-shared
+          ./configure --build=arm-apple-darwin --host=arm-apple-darwin \
+                      CC="clang" CFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
+                      --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
 
       - name: Create Universal Binary
@@ -107,7 +111,6 @@ jobs:
           cp opencore-amr-x86_64/amrnb/interf_dec.h artifacts/macos/
           cp opencore-amr-x86_64/amrnb/interf_enc.h artifacts/macos/
           lipo -info artifacts/macos/libopencore-amrnb.a
-
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
