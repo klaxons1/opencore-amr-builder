@@ -94,7 +94,7 @@ jobs:
           # Build x86_64
           cp -r opencore-amr-0.1.6 opencore-amr-x86_64
           cd opencore-amr-x86_64
-          ./configure --enable-static --disable-shared CFLAGS="-arch x86_64"
+          ./configure --enable-static --disable-shared --host=x86_64-apple-darwin CFLAGS="-arch x86_64"
           make -j$(sysctl -n hw.logicalcpu)
           cp amrnb/.libs/libopencore-amrnb.a ../libopencore-amrnb-x86_64.a
           cd ..
@@ -102,7 +102,7 @@ jobs:
           # Build arm64
           cp -r opencore-amr-0.1.6 opencore-amr-arm64
           cd opencore-amr-arm64
-          ./configure --enable-static --disable-shared CFLAGS="-arch arm64"
+          ./configure --enable-static --disable-shared --host=arm-apple-darwin CFLAGS="-arch arm64"
           make -j$(sysctl -n hw.logicalcpu)
           cp amrnb/.libs/libopencore-amrnb.a ../libopencore-amrnb-arm64.a
           cd ..
@@ -111,9 +111,12 @@ jobs:
           mkdir -p artifacts/macos
           lipo -create -output artifacts/macos/libopencore-amrnb.a libopencore-amrnb-x86_64.a libopencore-amrnb-arm64.a
 
-          # Headers (任一目录的头文件即可)
+          # Copy headers
           cp opencore-amr-arm64/amrnb/interf_dec.h artifacts/macos/
           cp opencore-amr-arm64/amrnb/interf_enc.h artifacts/macos/
+
+          # Print fat binary info
+          lipo -info artifacts/macos/libopencore-amrnb.a
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
