@@ -82,14 +82,38 @@ jobs:
       - name: Extract and build
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
-          cd opencore-amr-0.1.6
-          ./configure --enable-static --disable-shared
+          # cd opencore-amr-0.1.6
+          # ./configure --enable-static --disable-shared
+          # make -j$(sysctl -n hw.logicalcpu)
+          # cd ..
+          # mkdir -p artifacts/macos
+          # cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/macos/
+          # cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/macos/
+          # cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/macos/
+
+          # Build x86_64
+          cp -r opencore-amr-0.1.6 opencore-amr-x86_64
+          cd opencore-amr-x86_64
+          ./configure --enable-static --disable-shared CFLAGS="-arch x86_64"
           make -j$(sysctl -n hw.logicalcpu)
+          cp amrnb/.libs/libopencore-amrnb.a ../libopencore-amrnb-x86_64.a
           cd ..
+
+          # Build arm64
+          cp -r opencore-amr-0.1.6 opencore-amr-arm64
+          cd opencore-amr-arm64
+          ./configure --enable-static --disable-shared CFLAGS="-arch arm64"
+          make -j$(sysctl -n hw.logicalcpu)
+          cp amrnb/.libs/libopencore-amrnb.a ../libopencore-amrnb-arm64.a
+          cd ..
+
+          # Create universal binary
           mkdir -p artifacts/macos
-          cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/macos/
-          cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/macos/
-          cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/macos/
+          lipo -create -output artifacts/macos/libopencore-amrnb.a libopencore-amrnb-x86_64.a libopencore-amrnb-arm64.a
+
+          # Headers (任一目录的头文件即可)
+          cp opencore-amr-arm64/amrnb/interf_dec.h artifacts/macos/
+          cp opencore-amr-arm64/amrnb/interf_enc.h artifacts/macos/
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
