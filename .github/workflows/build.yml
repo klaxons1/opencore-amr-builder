@@ -140,7 +140,7 @@ jobs:
           name: windows32-artifacts
           path: artifacts/windows32/
 
-  build-macos:
+  build-macos-arm64:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v3
@@ -148,31 +148,19 @@ jobs:
       - name: Install dependencies
         run: brew install autoconf automake libtool
 
-      - name: Build for x86_64
+      - name: Build opencore-amr for arm64
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
-          mv opencore-amr-0.1.6 opencore-amr-x86_64
-          cd opencore-amr-x86_64
-          ./configure CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
-                      --build=x86_64-apple-darwin --host=x86_64-apple-darwin \
-                      --enable-static --disable-shared
+          cd opencore-amr-0.1.6
+          ./configure \
+            CFLAGS="-arch arm64" \
+            CXXFLAGS="-arch arm64" \
+            LDFLAGS="-arch arm64" \
+            --build=aarch64-apple-darwin \
+            --host=aarch64-apple-darwin \
+            --enable-static \
+            --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
-
-      - name: Build for arm64
-        run: |
-          tar xf opencore-amr-0.1.6.tar.gz
-          mv opencore-amr-0.1.6 opencore-amr-arm64
-          cd opencore-amr-arm64
-          ./configure CFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
-                      --build=arm64-apple-darwin --host=arm64-apple-darwin \
-                      --enable-static --disable-shared
-          make -j$(sysctl -n hw.logicalcpu)
-
-      - name: Create universal static library
-        run: |
-          lipo -create opencore-amr-x86_64/amrnb/.libs/libopencore-amrnb.a \
-                      opencore-amr-arm64/amrnb/.libs/libopencore-amrnb.a \
-                      -output libopencore-amrnb-universal.a
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
@@ -180,26 +168,90 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Build JNI wrapper for macOS
+      - name: Build JNI wrapper for arm64
         run: |
-          cp opencore-amr-x86_64/amrnb/*.h .
-          clang++ -arch x86_64 -arch arm64 \
-                  -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" -I. \
-                  -c amrdecoder-jni.c
-          clang++ -arch x86_64 -arch arm64 -dynamiclib \
-                  -o libamrdecoder.dylib amrdecoder-jni.o \
-                  libopencore-amrnb-universal.a
-          mkdir -p artifacts/macos
-          cp libamrdecoder.dylib artifacts/macos/
+          cp opencore-amr-0.1.6/amrnb/*.h .
+          clang -arch arm64 \
+            -I"$JAVA_HOME/include" \
+            -I"$JAVA_HOME/include/darwin" \
+            -I. \
+            -fPIC \
+            -c amrdecoder-jni.c
+          
+          clang -arch arm64 \
+            -dynamiclib \
+            -o libamrdecoder.dylib \
+            amrdecoder-jni.o \
+            opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
+            -framework CoreFoundation \
+            -framework AudioToolbox
 
-      - name: Upload macOS artifacts
+          mkdir -p artifacts/macos_arm64
+          cp libamrdecoder.dylib artifacts/macos_arm64/
+
+      - name: Upload macOS arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-artifacts
-          path: artifacts/macos/
+          name: macos-arm64-artifacts
+          path: artifacts/macos_arm64/
+
+  build-macos-x86_64:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: brew install autoconf automake libtool
+
+      - name: Build opencore-amr for x86_64
+        run: |
+          tar xf opencore-amr-0.1.6.tar.gz
+          cd opencore-amr-0.1.6
+          ./configure \
+            CFLAGS="-arch x86_64" \
+            CXXFLAGS="-arch x86_64" \
+            LDFLAGS="-arch x86_64" \
+            --build=x86_64-apple-darwin \
+            --host=x86_64-apple-darwin \
+            --enable-static \
+            --disable-shared
+          make -j$(sysctl -n hw.logicalcpu)
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build JNI wrapper for x86_64
+        run: |
+          cp opencore-amr-0.1.6/amrnb/*.h .
+          clang -arch x86_64 \
+            -I"$JAVA_HOME/include" \
+            -I"$JAVA_HOME/include/darwin" \
+            -I. \
+            -fPIC \
+            -c amrdecoder-jni.c
+          
+          clang -arch x86_64 \
+            -dynamiclib \
+            -o libamrdecoder.dylib \
+            amrdecoder-jni.o \
+            opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
+            -framework CoreFoundation \
+            -framework AudioToolbox
+
+          mkdir -p artifacts/macos_x86_64
+          cp libamrdecoder.dylib artifacts/macos_x86_64/
+
+      - name: Upload macOS x86_64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-x86_64-artifacts
+          path: artifacts/macos_x86_64/
 
   upload:
-    needs: [build-linux, build-windows64, build-windows32, build-macos]
+    needs: [build-linux, build-windows64, build-windows32, build-macos-arm64, build-macos-x86_64]
     runs-on: ubuntu-latest
     steps:
       - name: Download Linux artifacts
@@ -220,11 +272,17 @@ jobs:
           name: windows32-artifacts
           path: artifacts/windows32
 
-      - name: Download macOS artifacts
+      - name: Download macOS arm64 artifacts
         uses: actions/download-artifact@v4
         with:
-          name: macos-artifacts
-          path: artifacts/macos
+          name: macos-arm64-artifacts
+          path: artifacts/macos_arm64
+
+      - name: Download macOS x86_64 artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-x86_64-artifacts
+          path: artifacts/macos_x86_64
 
       - name: Upload all artifacts as release asset
         uses: softprops/action-gh-release@v1
@@ -233,6 +291,7 @@ jobs:
             artifacts/linux/libamrdecoder.so
             artifacts/windows64/amrdecoder.dll
             artifacts/windows32/amrdecoder.dll
-            artifacts/macos/libamrdecoder.dylib
+            artifacts/macos_arm64/libamrdecoder.dylib
+            artifacts/macos_x86_64/libamrdecoder.dylib
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
