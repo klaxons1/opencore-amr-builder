@@ -23,7 +23,7 @@ jobs:
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure --enable-static --disable-shared
+          ./configure --enable-static --disable-shared CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           make -j$(nproc)
 
       - name: Set up JDK 11
@@ -102,6 +102,10 @@ jobs:
           install: >-
             base-devel
             mingw-w64-i686-toolchain
+
+      - name: Setup MinGW32 Path
+        shell: cmd
+        run: setx PATH "%PATH%;C:\msys64\mingw32\bin"
 
       - name: Build opencore-amr (32-bit)
         shell: msys2 {0}
