@@ -6,7 +6,7 @@ extern "C" {
 #include "interf_dec.h"
 #include <string.h> // Для memset
 
-extern "C" {
+
 
 JNIEXPORT jlong JNICALL Java_emulator_media_amr_AMRDecoderJni_initDecoder(JNIEnv* env, jclass) {
     void* decoder = Decoder_Interface_init();
