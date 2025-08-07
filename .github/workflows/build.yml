@@ -129,7 +129,7 @@ jobs:
                -c amrdecoder-jni.cpp
           i686-w64-mingw32-g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
                opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
-          -static-libgcc -static-libstdc++ -s
+          -static-libgcc -static-libstdc++ 
           mkdir -p artifacts/windows32
           cp amrdecoder.dll artifacts/windows32/
 
