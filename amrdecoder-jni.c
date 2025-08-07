@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <jni.h>
 #include "interf_dec.h"
 #include <cstring> // Для memset
@@ -57,3 +61,7 @@ JNIEXPORT void JNICALL Java_emulator_media_amr_AMRDecoderJni_closeDecoder(
 }
 
 } // extern "C"
+
+#ifdef __cplusplus
+}
+#endif
