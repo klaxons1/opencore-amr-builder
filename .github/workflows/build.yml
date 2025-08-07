@@ -1,9 +1,4 @@
-name: Build opencore-amr from tarball
-
-# on:
-#   workflow_dispatch:
-#   push:
-#     branches: [ main ]
+name: Build opencore-amr and JNI wrapper
 
 on:
   workflow_dispatch:
@@ -20,9 +15,11 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool build-essential
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y autoconf automake libtool build-essential
 
-      - name: Extract and build
+      - name: Extract and build opencore-amr
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
@@ -33,6 +30,20 @@ jobs:
           cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/linux/
           cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/linux/
           cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/linux/
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build JNI wrapper for Linux
+        run: |
+          cp opencore-amr-0.1.6/amrnb/*.h .
+          $JAVA_HOME/bin/javac -h . amrdecoder-jni.cpp
+          g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I. -fPIC -c amrdecoder-jni.cpp
+          g++ -shared -o libamrdecoder.so amrdecoder-jni.o artifacts/linux/libopencore-amrnb.a
+          cp libamrdecoder.so artifacts/linux/
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -51,7 +62,7 @@ jobs:
             base-devel
             mingw-w64-x86_64-toolchain
 
-      - name: Extract and build
+      - name: Extract and build opencore-amr
         shell: msys2 {0}
         run: |
           pacman -S --noconfirm autoconf automake libtool
@@ -64,6 +75,20 @@ jobs:
           cp opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a artifacts/windows/
           cp opencore-amr-0.1.6/amrnb/interf_dec.h artifacts/windows/
           cp opencore-amr-0.1.6/amrnb/interf_enc.h artifacts/windows/
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build JNI wrapper for Windows
+        shell: msys2 {0}
+        run: |
+          cp opencore-amr-0.1.6/amrnb/*.h .
+          g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. -c amrdecoder-jni.cpp
+          g++ -shared -o amrdecoder.dll amrdecoder-jni.o artifacts/windows/libopencore-amrnb.a
+          cp amrdecoder.dll artifacts/windows/
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -81,23 +106,21 @@ jobs:
 
       - name: Build for x86_64
         run: |
-          cp opencore-amr-0.1.6.tar.gz opencore-amr-x86_64.tar.gz
-          tar xf opencore-amr-x86_64.tar.gz
+          tar xf opencore-amr-0.1.6.tar.gz
           mv opencore-amr-0.1.6 opencore-amr-x86_64
           cd opencore-amr-x86_64
-          ./configure --build=x86_64-apple-darwin --host=x86_64-apple-darwin \
-                      CC="clang" CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+          ./configure CFLAGS="-arch x86_64" LDFLAGS="-arch x86_64" \
+                      --build=x86_64-apple-darwin --host=x86_64-apple-darwin \
                       --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
 
       - name: Build for arm64
         run: |
-          cp opencore-amr-0.1.6.tar.gz opencore-amr-arm64.tar.gz
-          tar xf opencore-amr-arm64.tar.gz
+          tar xf opencore-amr-0.1.6.tar.gz
           mv opencore-amr-0.1.6 opencore-amr-arm64
           cd opencore-amr-arm64
-          ./configure --build=arm-apple-darwin --host=arm-apple-darwin \
-                      CC="clang" CFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
+          ./configure CFLAGS="-arch arm64" LDFLAGS="-arch arm64" \
+                      --build=arm64-apple-darwin --host=arm64-apple-darwin \
                       --enable-static --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
 
@@ -111,6 +134,23 @@ jobs:
           cp opencore-amr-x86_64/amrnb/interf_dec.h artifacts/macos/
           cp opencore-amr-x86_64/amrnb/interf_enc.h artifacts/macos/
           lipo -info artifacts/macos/libopencore-amrnb.a
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+
+      - name: Build JNI wrapper for macOS
+        run: |
+          cp opencore-amr-x86_64/amrnb/*.h .
+          clang++ -arch x86_64 -arch arm64 \
+                  -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" -I. \
+                  -c amrdecoder-jni.cpp
+          clang++ -arch x86_64 -arch arm64 -dynamiclib \
+                  -o libamrdecoder.dylib amrdecoder-jni.o artifacts/macos/libopencore-amrnb.a
+          cp libamrdecoder.dylib artifacts/macos/
+
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -142,6 +182,6 @@ jobs:
       - name: Upload all artifacts as release asset
         uses: softprops/action-gh-release@v1
         with:
-          files: artifacts/**/*  # Upload everything
+          files: artifacts/**/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
