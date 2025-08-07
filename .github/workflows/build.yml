@@ -176,7 +176,7 @@ jobs:
             -I"$JAVA_HOME/include/darwin" \
             -I. \
             -fPIC \
-            -c amrdecoder-jni.c
+            -c amrdecoder-jni-macos.c
           
           clang -arch arm64 \
             -dynamiclib \
@@ -231,7 +231,7 @@ jobs:
             -I"$JAVA_HOME/include/darwin" \
             -I. \
             -fPIC \
-            -c amrdecoder-jni.c
+            -c amrdecoder-jni-macos.c
           
           clang -arch x86_64 \
             -dynamiclib \
