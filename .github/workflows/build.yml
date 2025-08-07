@@ -36,7 +36,7 @@ jobs:
         run: |
           cp opencore-amr-0.1.6/amrnb/*.h .
           g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I. \
-               -fPIC -c amrdecoder-jni.cpp
+               -fPIC -c amrdecoder-jni.c
           g++ -shared -o libamrdecoder.so amrdecoder-jni.o \
                opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
           mkdir -p artifacts/linux
@@ -80,7 +80,7 @@ jobs:
         run: |
           cp opencore-amr-0.1.6/amrnb/*.h .
           g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
-               -c amrdecoder-jni.cpp
+               -c amrdecoder-jni.c
           g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
                opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
           mkdir -p artifacts/windows64
@@ -126,7 +126,7 @@ jobs:
         run: |
           cp opencore-amr-0.1.6/amrnb/*.h .
           i686-w64-mingw32-g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
-               -c amrdecoder-jni.cpp
+               -c amrdecoder-jni.c
           i686-w64-mingw32-g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
                opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
           -static-libgcc -static-libstdc++ 
@@ -184,7 +184,7 @@ jobs:
           cp opencore-amr-x86_64/amrnb/*.h .
           clang++ -arch x86_64 -arch arm64 \
                   -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" -I. \
-                  -c amrdecoder-jni.cpp
+                  -c amrdecoder-jni.c
           clang++ -arch x86_64 -arch arm64 -dynamiclib \
                   -o libamrdecoder.dylib amrdecoder-jni.o \
                   libopencore-amrnb-universal.a
