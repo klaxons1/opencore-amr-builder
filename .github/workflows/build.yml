@@ -128,7 +128,8 @@ jobs:
           i686-w64-mingw32-g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
                -c amrdecoder-jni.cpp
           i686-w64-mingw32-g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
-               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
+               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
+          -static-libgcc -static-libstdc++
           mkdir -p artifacts/windows32
           cp amrdecoder.dll artifacts/windows32/
 
