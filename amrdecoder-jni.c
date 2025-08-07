@@ -4,7 +4,7 @@ extern "C" {
 
 #include <jni.h>
 #include "interf_dec.h"
-#include <cstring> // Для memset
+#include <string.h> // Для memset
 
 extern "C" {
 
