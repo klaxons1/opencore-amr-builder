@@ -60,7 +60,7 @@ JNIEXPORT void JNICALL Java_emulator_media_amr_AMRDecoderJni_closeDecoder(
     }
 }
 
-} // extern "C"
+
 
 #ifdef __cplusplus
 }
