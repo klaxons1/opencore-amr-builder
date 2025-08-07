@@ -82,7 +82,8 @@ jobs:
           g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
                -c amrdecoder-jni.c
           g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
-               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
+               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
+          -Wl,--kill-at -Wl,--gc-sections -Wl,--strip-all
           mkdir -p artifacts/windows64
           cp amrdecoder.dll artifacts/windows64/
 
