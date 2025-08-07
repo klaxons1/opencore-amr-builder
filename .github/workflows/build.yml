@@ -181,7 +181,7 @@ jobs:
           clang -arch arm64 \
             -dynamiclib \
             -o libamrdecoder.dylib \
-            amrdecoder-jni.o \
+            amrdecoder-jni-macos.o \
             opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
             -framework CoreFoundation \
             -framework AudioToolbox
@@ -236,7 +236,7 @@ jobs:
           clang -arch x86_64 \
             -dynamiclib \
             -o libamrdecoder.dylib \
-            amrdecoder-jni.o \
+            amrdecoder-jni-macos.o \
             opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
             -framework CoreFoundation \
             -framework AudioToolbox
