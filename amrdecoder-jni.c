@@ -1,3 +1,8 @@
+#ifdef _WIN32
+#undef JNICALL
+#define JNICALL __cdecl
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
