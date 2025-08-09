@@ -1,12 +1,14 @@
-name: Build opencore-amr and JNI wrapper
+name: Build and Release opencore-amr with JNI
 
 on:
   workflow_dispatch:
     inputs:
       tag:
         description: 'Release tag (e.g. v1.0.0)'
-        required: false
-        default: ''
+        required: true
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build-linux:
@@ -19,12 +21,17 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y autoconf automake libtool build-essential
 
-      - name: Extract and build opencore-amr
+      - name: Build opencore-amr (Linux)
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure --enable-static --disable-shared CFLAGS="-fPIC" CXXFLAGS="-fPIC"
-          make -j$(nproc)
+          ./configure \
+            --enable-static \
+            --disable-shared \
+            CFLAGS="-O3 -flto -fvisibility=hidden -DNDEBUG -ffunction-sections -fdata-sections -fPIC" \
+            CXXFLAGS="-O3 -flto -fvisibility=hidden -DNDEBUG -ffunction-sections -fdata-sections -fPIC" \
+            LDFLAGS="-flto -Wl,--gc-sections"
+          make -j$(nproc) V=1
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
@@ -32,13 +39,16 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Build JNI wrapper for Linux
+      - name: Build JNI wrapper (Linux)
         run: |
           cp opencore-amr-0.1.6/amrnb/*.h .
-          g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I. \
-               -fPIC -c amrdecoder-jni.c
-          g++ -shared -o libamrdecoder.so amrdecoder-jni.o \
-               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
+          g++ -O3 -flto -fvisibility=hidden -DNDEBUG -ffunction-sections -fdata-sections \
+            -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/linux" -I. \
+            -fPIC -c amrdecoder-jni.c
+          g++ -flto -Wl,--gc-sections -shared \
+            -o libamrdecoder.so amrdecoder-jni.o \
+            opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
+          strip --strip-all libamrdecoder.so
           mkdir -p artifacts/linux
           cp libamrdecoder.so artifacts/linux/
 
@@ -48,8 +58,20 @@ jobs:
           name: linux-artifacts
           path: artifacts/linux/
 
-  build-windows64:
+  build-windows:
     runs-on: windows-latest
+    strategy:
+      matrix:
+        arch: [x86_64, i686]
+        include:
+          - arch: x86_64
+            toolchain: mingw-w64-x86_64-toolchain
+            prefix: x86_64-w64-mingw32
+            artifact: windows64
+          - arch: i686
+            toolchain: mingw-w64-i686-toolchain
+            prefix: i686-w64-mingw32
+            artifact: windows32
     steps:
       - uses: actions/checkout@v3
 
@@ -57,17 +79,26 @@ jobs:
         with:
           install: >-
             base-devel
-            mingw-w64-x86_64-toolchain
+            autoconf
+            automake
+            libtool
+            ${{ matrix.toolchain }}
 
-      - name: Build opencore-amr (64-bit)
+      - name: Build opencore-amr (Windows ${{ matrix.arch }})
         shell: msys2 {0}
         run: |
-          pacman -S --noconfirm autoconf automake libtool
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure --host=x86_64-w64-mingw32 \
-                      --enable-static --disable-shared
-          make -j$(nproc)
+          export CC=${{ matrix.prefix }}-gcc
+          export CXX=${{ matrix.prefix }}-g++
+          ./configure \
+            --host=${{ matrix.prefix }} \
+            --enable-static \
+            --disable-shared \
+            CFLAGS="-O3 -flto -DNDEBUG -ffunction-sections -fdata-sections" \
+            CXXFLAGS="-O3 -flto -DNDEBUG -ffunction-sections -fdata-sections" \
+            LDFLAGS="-flto -Wl,--gc-sections"
+          make -j$(nproc) V=1
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
@@ -75,93 +106,52 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Build JNI wrapper for Windows (64-bit)
+      - name: Build JNI wrapper (Windows ${{ matrix.arch }})
         shell: msys2 {0}
         run: |
           cp opencore-amr-0.1.6/amrnb/*.h .
-          g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
-               -c amrdecoder-jni.c
-          g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
-               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
-          -Wl,--kill-at -Wl,--gc-sections -Wl,--strip-all
-          mkdir -p artifacts/windows64
-          cp amrdecoder.dll artifacts/windows64/
+          ${{ matrix.prefix }}-g++ -O3 -flto -DNDEBUG -ffunction-sections -fdata-sections \
+            -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
+            -c amrdecoder-jni.c
+          ${{ matrix.prefix }}-g++ -flto -Wl,--gc-sections -shared \
+            -o amrdecoder.dll amrdecoder-jni.o \
+            opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
+            -static-libgcc -static-libstdc++ \
+            -Wl,--kill-at
+          ${{ matrix.prefix }}-strip --strip-all amrdecoder.dll
+          mkdir -p artifacts/${{ matrix.artifact }}
+          cp amrdecoder.dll artifacts/${{ matrix.artifact }}/
 
-      - name: Upload Windows 64-bit artifacts
+      - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: windows64-artifacts
-          path: artifacts/windows64/
+          name: windows-${{ matrix.arch }}-artifacts
+          path: artifacts/${{ matrix.artifact }}
 
-  build-windows32:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: msys2/setup-msys2@v2
-        with:
-          install: >-
-            base-devel
-            mingw-w64-i686-toolchain
-          msystem: MINGW32  # Автоматически настраивает окружение для 32-bit
-
-      - name: Build opencore-amr (32-bit)
-        shell: msys2 {0}
-        run: |
-          pacman -S --noconfirm autoconf automake libtool
-          tar xf opencore-amr-0.1.6.tar.gz
-          cd opencore-amr-0.1.6
-          CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++ \
-          ./configure --host=i686-w64-mingw32 \
-                      --enable-static --disable-shared
-          make -j$(nproc)
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-
-      - name: Build JNI wrapper for Windows (32-bit)
-        shell: msys2 {0}
-        run: |
-          cp opencore-amr-0.1.6/amrnb/*.h .
-          i686-w64-mingw32-g++ -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/win32" -I. \
-               -c amrdecoder-jni.c
-          i686-w64-mingw32-g++ -shared -o amrdecoder.dll amrdecoder-jni.o \
-               opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
-          -static-libgcc -static-libstdc++ \
-          -Wl,--kill-at -Wl,--gc-sections -Wl,--strip-all
-          mkdir -p artifacts/windows32
-          cp amrdecoder.dll artifacts/windows32/
-
-      - name: Upload Windows 32-bit artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows32-artifacts
-          path: artifacts/windows32/
-
-  build-macos-arm64:
+  build-macos:
     runs-on: macos-latest
+    strategy:
+      matrix:
+        arch: [arm64, x86_64]
     steps:
       - uses: actions/checkout@v3
 
       - name: Install dependencies
         run: brew install autoconf automake libtool
 
-      - name: Build opencore-amr for arm64
+      - name: Build opencore-amr (macOS ${{ matrix.arch }})
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
           ./configure \
-            CFLAGS="-arch arm64" \
-            CXXFLAGS="-arch arm64" \
-            LDFLAGS="-arch arm64" \
-            --build=aarch64-apple-darwin \
-            --host=aarch64-apple-darwin \
+            --build="${{ matrix.arch }}-apple-darwin" \
+            --host="${{ matrix.arch }}-apple-darwin" \
             --enable-static \
-            --disable-shared
-          make -j$(sysctl -n hw.logicalcpu)
+            --disable-shared \
+            CFLAGS="-arch ${{ matrix.arch }} -O3 -flto -fvisibility=hidden -DNDEBUG -ffunction-sections -fdata-sections -fPIC" \
+            CXXFLAGS="-arch ${{ matrix.arch }} -O3 -flto -fvisibility=hidden -DNDEBUG -ffunction-sections -fdata-sections -fPIC" \
+            LDFLAGS="-arch ${{ matrix.arch }} -flto -Wl,-dead_strip"
+          make -j$(sysctl -n hw.logicalcpu) V=1
 
       - name: Set up JDK 11
         uses: actions/setup-java@v3
@@ -169,130 +159,51 @@ jobs:
           java-version: '11'
           distribution: 'temurin'
 
-      - name: Build JNI wrapper for arm64
+      - name: Build JNI wrapper (macOS ${{ matrix.arch }})
         run: |
           cp opencore-amr-0.1.6/amrnb/*.h .
-          clang -arch arm64 \
-            -I"$JAVA_HOME/include" \
-            -I"$JAVA_HOME/include/darwin" \
-            -I. \
-            -fPIC \
-            -c amrdecoder-jni-macos.c
-          
-          clang -arch arm64 \
-            -dynamiclib \
-            -o libamrdecoder.dylib \
-            amrdecoder-jni-macos.o \
+          clang -arch ${{ matrix.arch }} \
+            -O3 -flto -fvisibility=hidden -DNDEBUG -ffunction-sections -fdata-sections \
+            -I"$JAVA_HOME/include" -I"$JAVA_HOME/include/darwin" -I. \
+            -fPIC -c amrdecoder-jni-macos.c
+          clang -arch ${{ matrix.arch }} \
+            -flto -Wl,-dead_strip -dynamiclib \
+            -o libamrdecoder.dylib amrdecoder-jni-macos.o \
             opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
-            -framework CoreFoundation \
-            -framework AudioToolbox
+            -framework CoreFoundation -framework AudioToolbox
+          strip -x libamrdecoder.dylib
+          mkdir -p artifacts/macos_${{ matrix.arch }}
+          cp libamrdecoder.dylib artifacts/macos_${{ matrix.arch }}/
 
-          mkdir -p artifacts/macos_arm64
-          cp libamrdecoder.dylib artifacts/macos_arm64/
-
-      - name: Upload macOS arm64 artifacts
+      - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: macos-arm64-artifacts
-          path: artifacts/macos_arm64/
+          name: macos-${{ matrix.arch }}-artifacts
+          path: artifacts/macos_${{ matrix.arch }}
 
-  build-macos-x86_64:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Install dependencies
-        run: brew install autoconf automake libtool
-
-      - name: Build opencore-amr for x86_64
-        run: |
-          tar xf opencore-amr-0.1.6.tar.gz
-          cd opencore-amr-0.1.6
-          ./configure \
-            CFLAGS="-arch x86_64" \
-            CXXFLAGS="-arch x86_64" \
-            LDFLAGS="-arch x86_64" \
-            --build=x86_64-apple-darwin \
-            --host=x86_64-apple-darwin \
-            --enable-static \
-            --disable-shared
-          make -j$(sysctl -n hw.logicalcpu)
-
-      - name: Set up JDK 11
-        uses: actions/setup-java@v3
-        with:
-          java-version: '11'
-          distribution: 'temurin'
-
-      - name: Build JNI wrapper for x86_64
-        run: |
-          cp opencore-amr-0.1.6/amrnb/*.h .
-          clang -arch x86_64 \
-            -I"$JAVA_HOME/include" \
-            -I"$JAVA_HOME/include/darwin" \
-            -I. \
-            -fPIC \
-            -c amrdecoder-jni-macos.c
-          
-          clang -arch x86_64 \
-            -dynamiclib \
-            -o libamrdecoder.dylib \
-            amrdecoder-jni-macos.o \
-            opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
-            -framework CoreFoundation \
-            -framework AudioToolbox
-
-          mkdir -p artifacts/macos_x86_64
-          cp libamrdecoder.dylib artifacts/macos_x86_64/
-
-      - name: Upload macOS x86_64 artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-x86_64-artifacts
-          path: artifacts/macos_x86_64/
-
-  upload:
-    needs: [build-linux, build-windows64, build-windows32, build-macos-arm64, build-macos-x86_64]
+  create-release:
+    needs: [build-linux, build-windows, build-macos]
     runs-on: ubuntu-latest
     steps:
-      - name: Download Linux artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: linux-artifacts
-          path: artifacts/linux
+          path: artifacts
+          pattern: '*artifacts'
+          merge-multiple: true
 
-      - name: Download Windows 64-bit artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows64-artifacts
-          path: artifacts/windows64
-
-      - name: Download Windows 32-bit artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows32-artifacts
-          path: artifacts/windows32
-
-      - name: Download macOS arm64 artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-arm64-artifacts
-          path: artifacts/macos_arm64
-
-      - name: Download macOS x86_64 artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-x86_64-artifacts
-          path: artifacts/macos_x86_64
-
-      - name: Upload all artifacts as release asset
+      - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: Release ${{ github.event.inputs.tag || github.ref_name }}
           files: |
             artifacts/linux/libamrdecoder.so
             artifacts/windows64/amrdecoder.dll
             artifacts/windows32/amrdecoder.dll
             artifacts/macos_arm64/libamrdecoder.dylib
             artifacts/macos_x86_64/libamrdecoder.dylib
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
