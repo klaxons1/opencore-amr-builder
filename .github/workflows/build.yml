@@ -68,10 +68,12 @@ jobs:
             toolchain: mingw-w64-x86_64-toolchain
             prefix: x86_64-w64-mingw32
             artifact: windows64
+            msystem: MINGW64
           - arch: i686
             toolchain: mingw-w64-i686-toolchain
             prefix: i686-w64-mingw32
             artifact: windows32
+            msystem: MINGW32
     steps:
       - uses: actions/checkout@v3
 
@@ -83,14 +85,23 @@ jobs:
             automake
             libtool
             ${{ matrix.toolchain }}
+          msystem: ${{ matrix.msystem }}
+          update: true
+          release: false
+
+      - name: Install specific i686 compiler
+        if: matrix.arch == 'i686'
+        shell: msys2 {0}
+        run: |
+          pacman -S --needed --noconfirm mingw-w64-i686-gcc mingw-w64-i686-gcc-libs
 
       - name: Build opencore-amr (Windows ${{ matrix.arch }})
         shell: msys2 {0}
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          export CC=${{ matrix.prefix }}-gcc
-          export CXX=${{ matrix.prefix }}-g++
+          export CC="${{ matrix.prefix }}-gcc"
+          export CXX="${{ matrix.prefix }}-g++"
           ./configure \
             --host=${{ matrix.prefix }} \
             --enable-static \
