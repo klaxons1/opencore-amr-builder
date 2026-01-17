@@ -1,2 +1,2 @@
 # opencore-amr-builder
-builder opencore-amr for mac/win/linux specifically with kemnnmod integration
+builder opencore-amr 0.1.6 as shared lib linux64, win32/64, macos x64 and arm64
