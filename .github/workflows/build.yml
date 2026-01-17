@@ -18,14 +18,12 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y autoconf automake libtool build-essential
-
       - name: Extract and build opencore-amr
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
           ./configure --enable-static --disable-shared CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           make -j$(nproc)
-
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
@@ -41,7 +39,6 @@ jobs:
                opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a
           mkdir -p artifacts/linux
           cp libamrdecoder.so artifacts/linux/
-
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -58,7 +55,6 @@ jobs:
           install: >-
             base-devel
             mingw-w64-x86_64-toolchain
-
       - name: Build opencore-amr (64-bit)
         shell: msys2 {0}
         run: |
@@ -68,7 +64,6 @@ jobs:
           ./configure --host=x86_64-w64-mingw32 \
                       --enable-static --disable-shared
           make -j$(nproc)
-
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
@@ -86,7 +81,6 @@ jobs:
           -Wl,--kill-at -Wl,--gc-sections -Wl,--strip-all
           mkdir -p artifacts/windows64
           cp amrdecoder.dll artifacts/windows64/
-
       - name: Upload Windows 64-bit artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -115,7 +109,6 @@ jobs:
           ./configure --host=i686-w64-mingw32 \
                       --enable-static --disable-shared
           make -j$(nproc)
-
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
@@ -134,7 +127,6 @@ jobs:
           -Wl,--kill-at -Wl,--gc-sections -Wl,--strip-all
           mkdir -p artifacts/windows32
           cp amrdecoder.dll artifacts/windows32/
-
       - name: Upload Windows 32-bit artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -162,7 +154,6 @@ jobs:
             --enable-static \
             --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
-
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
@@ -186,10 +177,8 @@ jobs:
             opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
             -framework CoreFoundation \
             -framework AudioToolbox
-
           mkdir -p artifacts/macos_arm64
           cp libamrdecoder.dylib artifacts/macos_arm64/
-
       - name: Upload macOS arm64 artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -217,7 +206,6 @@ jobs:
             --enable-static \
             --disable-shared
           make -j$(sysctl -n hw.logicalcpu)
-
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
@@ -241,10 +229,8 @@ jobs:
             opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.a \
             -framework CoreFoundation \
             -framework AudioToolbox
-
           mkdir -p artifacts/macos_x86_64
           cp libamrdecoder.dylib artifacts/macos_x86_64/
-
       - name: Upload macOS x86_64 artifacts
         uses: actions/upload-artifact@v4
         with:
