@@ -1,4 +1,4 @@
-name: Build opencore-amr shared library
+name: Build opencore-amr (JNA ready)
 
 on:
   workflow_dispatch:
@@ -19,28 +19,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y autoconf automake libtool build-essential
 
-      - name: Extract and build opencore-amr
+      - name: Extract and build opencore-amr (Shared)
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure \
-            --enable-shared \
-            --disable-static \
-            --disable-amrnb-encoder \
-            --disable-amrwb-decoder
+          # Для JNA нужна shared библиотека (.so).
+          # Включаем shared, отключаем static.
+          ./configure --disable-static --enable-shared CFLAGS="-fPIC" CXXFLAGS="-fPIC"
           make -j$(nproc)
-          
-          echo "=== Contents of amrnb/.libs ==="
-          ls -la amrnb/.libs/
-          
-          mkdir -p ../artifacts/linux
-          
-          # Копируем и strip'им
-          find amrnb/.libs -name "libopencore-amrnb.so*" -type f ! -name "*.la" -exec cp {} ../artifacts/linux/libopencore-amrnb.so \;
-          strip --strip-unneeded ../artifacts/linux/libopencore-amrnb.so
-          
-          echo "=== Final library ==="
-          ls -la ../artifacts/linux/
+
+      - name: Prepare Linux artifacts
+        run: |
+          mkdir -p artifacts/linux
+          # Берем реальный файл библиотеки из .libs и переименовываем в универсальное имя для JNA
+          # Обычно configure создает симлинки, cp -L скопирует файл, на который указывает ссылка
+          cp -L opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.so artifacts/linux/libopencore-amrnb.so
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -55,35 +48,28 @@ jobs:
 
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW64
           install: >-
             base-devel
             mingw-w64-x86_64-toolchain
-            autoconf
-            automake
-            libtool
 
-      - name: Build opencore-amr (64-bit)
+      - name: Build opencore-amr (64-bit Shared)
         shell: msys2 {0}
         run: |
+          pacman -S --noconfirm autoconf automake libtool
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure \
-            --enable-shared \
-            --disable-static \
-            --disable-amrnb-encoder \
-            --disable-amrwb-decoder
+          # LDFLAGS добавляем, чтобы не тащить зависимости libgcc/libstdc++ dll
+          ./configure --host=x86_64-w64-mingw32 \
+                      --disable-static --enable-shared \
+                      LDFLAGS="-static-libgcc -static-libstdc++ -Wl,--strip-all"
           make -j$(nproc)
-          
-          echo "=== Contents of amrnb/.libs ==="
-          ls -la amrnb/.libs/
-          
-          mkdir -p ../artifacts/windows64
-          cp amrnb/.libs/libopencore-amrnb-0.dll ../artifacts/windows64/opencore-amrnb.dll
-          strip --strip-unneeded ../artifacts/windows64/opencore-amrnb.dll
-          
-          echo "=== Final library ==="
-          ls -la ../artifacts/windows64/
+
+      - name: Prepare Windows 64-bit artifacts
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifacts/windows64
+          # На Windows MinGW обычно создает libopencore-amrnb-0.dll
+          cp opencore-amr-0.1.6/amrnb/.libs/*.dll artifacts/windows64/opencore-amrnb.dll
 
       - name: Upload Windows 64-bit artifacts
         uses: actions/upload-artifact@v4
@@ -98,35 +84,28 @@ jobs:
 
       - uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW32
           install: >-
             base-devel
             mingw-w64-i686-toolchain
-            autoconf
-            automake
-            libtool
+          msystem: MINGW32
 
-      - name: Build opencore-amr (32-bit)
+      - name: Build opencore-amr (32-bit Shared)
         shell: msys2 {0}
         run: |
+          pacman -S --noconfirm autoconf automake libtool
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
-          ./configure \
-            --enable-shared \
-            --disable-static \
-            --disable-amrnb-encoder \
-            --disable-amrwb-decoder
+          CC=i686-w64-mingw32-gcc CXX=i686-w64-mingw32-g++ \
+          ./configure --host=i686-w64-mingw32 \
+                      --disable-static --enable-shared \
+                      LDFLAGS="-static-libgcc -static-libstdc++ -Wl,--strip-all"
           make -j$(nproc)
-          
-          echo "=== Contents of amrnb/.libs ==="
-          ls -la amrnb/.libs/
-          
-          mkdir -p ../artifacts/windows32
-          cp amrnb/.libs/libopencore-amrnb-0.dll ../artifacts/windows32/opencore-amrnb.dll
-          strip --strip-unneeded ../artifacts/windows32/opencore-amrnb.dll
-          
-          echo "=== Final library ==="
-          ls -la ../artifacts/windows32/
+
+      - name: Prepare Windows 32-bit artifacts
+        shell: msys2 {0}
+        run: |
+          mkdir -p artifacts/windows32
+          cp opencore-amr-0.1.6/amrnb/.libs/*.dll artifacts/windows32/opencore-amrnb.dll
 
       - name: Upload Windows 32-bit artifacts
         uses: actions/upload-artifact@v4
@@ -142,7 +121,7 @@ jobs:
       - name: Install dependencies
         run: brew install autoconf automake libtool
 
-      - name: Build opencore-amr for arm64
+      - name: Build opencore-amr for arm64 (Shared)
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
@@ -152,21 +131,15 @@ jobs:
             LDFLAGS="-arch arm64" \
             --build=aarch64-apple-darwin \
             --host=aarch64-apple-darwin \
-            --enable-shared \
             --disable-static \
-            --disable-amrnb-encoder \
-            --disable-amrwb-decoder
+            --enable-shared
           make -j$(sysctl -n hw.logicalcpu)
-          
-          echo "=== Contents of amrnb/.libs ==="
-          ls -la amrnb/.libs/
-          
-          mkdir -p ../artifacts/macos_arm64
-          find amrnb/.libs -name "libopencore-amrnb*.dylib" -type f -exec cp {} ../artifacts/macos_arm64/libopencore-amrnb.dylib \;
-          strip -x ../artifacts/macos_arm64/libopencore-amrnb.dylib
-          
-          echo "=== Final library ==="
-          ls -la ../artifacts/macos_arm64/
+
+      - name: Prepare macOS arm64 artifacts
+        run: |
+          mkdir -p artifacts/macos_arm64
+          # Копируем dylib. Используем -L, чтобы разрешить симлинки
+          cp -L opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.dylib artifacts/macos_arm64/libopencore-amrnb.dylib
 
       - name: Upload macOS arm64 artifacts
         uses: actions/upload-artifact@v4
@@ -182,7 +155,7 @@ jobs:
       - name: Install dependencies
         run: brew install autoconf automake libtool
 
-      - name: Build opencore-amr for x86_64
+      - name: Build opencore-amr for x86_64 (Shared)
         run: |
           tar xf opencore-amr-0.1.6.tar.gz
           cd opencore-amr-0.1.6
@@ -192,21 +165,14 @@ jobs:
             LDFLAGS="-arch x86_64" \
             --build=x86_64-apple-darwin \
             --host=x86_64-apple-darwin \
-            --enable-shared \
             --disable-static \
-            --disable-amrnb-encoder \
-            --disable-amrwb-decoder
+            --enable-shared
           make -j$(sysctl -n hw.logicalcpu)
-          
-          echo "=== Contents of amrnb/.libs ==="
-          ls -la amrnb/.libs/
-          
-          mkdir -p ../artifacts/macos_x86_64
-          find amrnb/.libs -name "libopencore-amrnb*.dylib" -type f -exec cp {} ../artifacts/macos_x86_64/libopencore-amrnb.dylib \;
-          strip -x ../artifacts/macos_x86_64/libopencore-amrnb.dylib
-          
-          echo "=== Final library ==="
-          ls -la ../artifacts/macos_x86_64/
+
+      - name: Prepare macOS x86_64 artifacts
+        run: |
+          mkdir -p artifacts/macos_x86_64
+          cp -L opencore-amr-0.1.6/amrnb/.libs/libopencore-amrnb.dylib artifacts/macos_x86_64/libopencore-amrnb.dylib
 
       - name: Upload macOS x86_64 artifacts
         uses: actions/upload-artifact@v4
@@ -218,51 +184,23 @@ jobs:
     needs: [build-linux, build-windows64, build-windows32, build-macos-arm64, build-macos-x86_64]
     runs-on: ubuntu-latest
     steps:
-      - name: Download Linux artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          name: linux-artifacts
-          path: artifacts/linux
+          path: artifacts
 
-      - name: Download Windows 64-bit artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows64-artifacts
-          path: artifacts/windows64
-
-      - name: Download Windows 32-bit artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: windows32-artifacts
-          path: artifacts/windows32
-
-      - name: Download macOS arm64 artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-arm64-artifacts
-          path: artifacts/macos_arm64
-
-      - name: Download macOS x86_64 artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-x86_64-artifacts
-          path: artifacts/macos_x86_64
-
-      - name: List all artifacts
-        run: |
-          echo "=== All artifacts ==="
-          find artifacts -type f -exec ls -lh {} \;
+      - name: List artifacts
+        run: ls -R artifacts
 
       - name: Upload all artifacts as release asset
         uses: softprops/action-gh-release@v1
-        if: ${{ github.event.inputs.tag != '' }}
+        if: startsWith(github.ref, 'refs/tags/')
         with:
-          tag_name: ${{ github.event.inputs.tag }}
           files: |
-            artifacts/linux/libopencore-amrnb.so
-            artifacts/windows64/opencore-amrnb.dll
-            artifacts/windows32/opencore-amrnb.dll
-            artifacts/macos_arm64/libopencore-amrnb.dylib
-            artifacts/macos_x86_64/libopencore-amrnb.dylib
+            artifacts/linux-artifacts/libopencore-amrnb.so
+            artifacts/windows64-artifacts/opencore-amrnb.dll
+            artifacts/windows32-artifacts/opencore-amrnb.dll
+            artifacts/macos-arm64-artifacts/libopencore-amrnb.dylib
+            artifacts/macos-x86_64-artifacts/libopencore-amrnb.dylib
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
